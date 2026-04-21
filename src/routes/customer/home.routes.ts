@@ -1,12 +1,12 @@
 import { Router, type Request, type Response } from "express";
 import { Types } from "mongoose";
-import { asyncHandler } from "../../utils/asyncHandler.js";
-import { Banner } from "../../models/Banner.js";
-import { Category } from "../../models/Category.js";
-import { Product } from "../../models/Product.js";
-import { Promo } from "../../models/Promo.js";
-import { ok } from "../../utils/envelope.js";
-import { Brand } from "../../models/Brand.js";
+import { asyncHandler } from "../../utils/asyncHandler";
+import { Banner } from "../../models/Banner";
+import { Category } from "../../models/Category";
+import { Product } from "../../models/Product";
+import { Promo } from "../../models/Promo";
+import { ok } from "../../utils/envelope";
+import { Brand } from "../../models/Brand";
 
 type BannerRow = {
   _id: Types.ObjectId;

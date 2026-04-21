@@ -1,11 +1,11 @@
 import { Router, type Request, type Response } from "express";
-import { requireAdmin } from "../../middleware/auth.js";
-import { asyncHandler } from "../../utils/asyncHandler.js";
-import { Promo } from "../../models/Promo.js";
+import { requireAdmin } from "../../middleware/auth";
+import { asyncHandler } from "../../utils/asyncHandler";
+import { Promo } from "../../models/Promo";
 import { Types } from "mongoose";
-import { ok } from "../../utils/envelope.js";
-import { requireFound, requireText } from "../../utils/helpers.js";
-import { AppError } from "../../utils/AppError.js";
+import { ok } from "../../utils/envelope";
+import { requireFound, requireText } from "../../utils/helpers";
+import { AppError } from "../../utils/AppError";
 
 type PromoDbItem = {
   _id?: Types.ObjectId;
