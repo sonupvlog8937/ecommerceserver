@@ -8,6 +8,8 @@ import { requireFound, requireNumber, requireText } from "../../utils/helpers";
 import { Product } from "../../models/Product";
 import { AppError } from "../../utils/AppError";
 import { uploadManyBuffersToCloudinary } from "../../utils/cloudinary";
+import { Brand } from "../../models/Brand";
+import { SpecificationModel } from "../../models/Specification";
 
 type UploadedImage = {
   url: string;
@@ -47,6 +49,12 @@ adminProductRouter.post(
 
     requireText(name, "Category name is needed");
 
+    const existing = await Category.findOne({ name });
+
+    if (existing) {
+      throw new AppError(400, "Category already exists");
+    }
+
     const category = await Category.create({ name });
 
     res.status(201).json(ok(category));
@@ -70,6 +78,88 @@ adminProductRouter.put(
     res.json(ok(category));
   }),
 );
+
+adminProductRouter.delete(
+  "/categories/:id",
+  asyncHandler(async (req: Request, res: Response) => {
+    const categoryId = req.params.id as string;
+    const linkedProducts = await Product.countDocuments({ category: categoryId });
+
+    if (linkedProducts > 0) {
+      throw new AppError(400, "Category is used by existing products");
+    }
+
+    const deleted = await Category.findByIdAndDelete(categoryId);
+    requireFound(deleted, "Category not found", 404);
+
+    res.json(ok({ success: true }));
+  }),
+);
+
+// brands
+adminProductRouter.get(
+  "/brands",
+  asyncHandler(async (_req: Request, res: Response) => {
+    const brands = await Brand.find().sort({ name: 1 });
+    res.json(ok(brands));
+  }),
+);
+
+adminProductRouter.post(
+  "/brands",
+  asyncHandler(async (req: Request, res: Response) => {
+    const name = String(req.body.name || "").trim();
+    requireText(name, "Brand name is needed");
+
+    const existing = await Brand.findOne({ name });
+
+    if (existing) {
+      throw new AppError(400, "Brand already exists");
+    }
+
+    const brand = await Brand.create({ name });
+
+    res.status(201).json(ok(brand));
+  }),
+);
+
+adminProductRouter.put(
+  "/brands/:id",
+  asyncHandler(async (req: Request, res: Response) => {
+    const brandId = req.params.id as string;
+    const name = String(req.body.name || "").trim();
+    requireText(name, "Brand name is needed");
+
+    const existingBrand = await Brand.findById(brandId);
+    const brand = requireFound(existingBrand, "Brand not found");
+
+    brand.name = name;
+
+    await brand.save();
+
+    res.json(ok(brand));
+  }),
+);
+
+adminProductRouter.delete(
+  "/brands/:id",
+  asyncHandler(async (req: Request, res: Response) => {
+    const brandId = req.params.id as string;
+    const brandDoc = await Brand.findById(brandId);
+    const brand = requireFound(brandDoc, "Brand not found", 404);
+
+    const linkedProducts = await Product.countDocuments({ brand: brand.name });
+
+    if (linkedProducts > 0) {
+      throw new AppError(400, "Brand is used by existing products");
+    }
+
+    await Brand.findByIdAndDelete(brand._id);
+
+    res.json(ok({ success: true }));
+  }),
+);
+
 
 // products
 adminProductRouter.get(
@@ -121,6 +211,9 @@ adminProductRouter.post(
     const status = String(req.body.status || "active").trim();
     const colors = req.body.colors || [];
     const sizes = req.body.sizes || [];
+    const isFeatured = String(req.body.isFeatured || "false") === "true";
+    const isPopular = String(req.body.isPopular || "false") === "true";
+    const rawSpecifications = String(req.body.specifications || "[]");
 
     requireText(title, "Title is required");
     requireText(description, "Description is required");
@@ -165,8 +258,39 @@ adminProductRouter.post(
       salePercentage,
       stock,
       status,
+      isFeatured,
+      isPopular,
       createdBy: user._id,
     });
+
+    const specifications = (() => {
+      try {
+        const parsed = JSON.parse(rawSpecifications) as Array<{
+          key?: string;
+          value?: string;
+        }>;
+
+        return parsed
+          .map((item) => ({
+            key: String(item.key || "").trim(),
+            value: String(item.value || "").trim(),
+          }))
+          .filter((item) => item.key && item.value);
+      } catch {
+        return [];
+      }
+    })();
+
+    if (specifications.length) {
+      await SpecificationModel.insertMany(
+        specifications.map((item) => ({
+          productId: product._id,
+          key: item.key,
+          value: item.value,
+        })),
+      );
+    }
+
 
     const createdProduct = await Product.findById(product._id).populate(
       "category",
@@ -195,6 +319,9 @@ adminProductRouter.put(
     const colors = req.body.colors || [];
     const sizes = req.body.sizes || [];
     const coverImagePublicId = String(req.body.coverImagePublicId || "").trim();
+    const isFeatured = String(req.body.isFeatured || "false") === "true";
+    const isPopular = String(req.body.isPopular || "false") === "true";
+    const rawSpecifications = String(req.body.specifications || "[]");
 
     requireText(title, "Title is required");
     requireText(description, "Description is required");
@@ -226,13 +353,24 @@ adminProductRouter.put(
       isCover: false,
     }));
 
-    let existingImages: UploadedImage[] = product.images.map(
-      (img: UploadedImage) => ({
-        url: img.url,
-        publicId: img.publicId,
-        isCover: img.isCover,
-      }),
-    );
+    const existingImages: UploadedImage[] = (() => {
+      const rawValue = req.body.existingImages;
+
+      if (!rawValue) {
+        return product.images.map((img: UploadedImage) => ({
+          url: img.url,
+          publicId: img.publicId,
+          isCover: img.isCover,
+        }));
+      }
+
+      try {
+        const parsed = JSON.parse(rawValue as string) as UploadedImage[];
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    })();
 
     const mergedImages: UploadedImage[] = [
       ...existingImages,
@@ -262,8 +400,42 @@ adminProductRouter.put(
     product.price = price;
     product.salePercentage = salePercentage;
     product.stock = stock;
+    product.isFeatured = isFeatured;
+    product.isPopular = isPopular;
     product.status = status;
     product.set("images", finalImages);
+
+    const specifications = (() => {
+      try {
+        const parsed = JSON.parse(rawSpecifications) as Array<{
+          key?: string;
+          value?: string;
+        }>;
+
+        return parsed
+          .map((item) => ({
+            key: String(item.key || "").trim(),
+            value: String(item.value || "").trim(),
+          }))
+          .filter((item) => item.key && item.value);
+      } catch {
+        return [];
+      }
+    })();
+
+    if (Array.isArray(specifications)) {
+      await SpecificationModel.deleteMany({ productId: product._id });
+      if (specifications.length) {
+        await SpecificationModel.insertMany(
+          specifications.map((item) => ({
+            productId: product._id,
+            key: item.key,
+            value: item.value,
+          })),
+        );
+      }
+    }
+
 
     await product.save();
 

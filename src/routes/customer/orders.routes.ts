@@ -1,6 +1,6 @@
 import { Router, type Response, type Request } from "express";
 import { Types } from "mongoose";
-import { Order, OrderStatus, PaymentStatus } from "../../models/Order";
+import { Order, OrderStatus, PaymentMethod, PaymentStatus } from "../../models/Order";
 import { getDbUserFromReq, requireAuth } from "../../middleware/auth";
 import { asyncHandler } from "../../utils/asyncHandler";
 import { ok } from "../../utils/envelope";
@@ -14,7 +14,19 @@ type CustomerOrderRow = {
   totalItems: number;
   totalAmount: number;
   paymentStatus: PaymentStatus;
+  paymentMethod: PaymentMethod;
   orderStatus: OrderStatus;
+  trackingId: string;
+  items: Array<{
+    product: {
+      _id: Types.ObjectId;
+      title: string;
+      image: string;
+      price: number;
+      salePercentage: number;
+    };
+    quantity: number;
+  }>;
   paidAt?: Date | null;
   deliveredAt?: Date | null;
   returnedAt?: Date | null;
@@ -32,8 +44,13 @@ customerOrderRouter.get(
 
     const orders = await Order.find({ user: dbUser._id })
       .select(
-        "totalItems totalAmount paymentStatus orderStatus  paidAt deliveredAt returnedAt createdAt",
+        "totalItems totalAmount paymentStatus paymentMethod orderStatus trackingId items paidAt deliveredAt returnedAt createdAt",
       )
+      .populate({
+        path: "items.product",
+        select: "title image price salePercentage",
+        model: Product,
+      })
       .sort({ createdAt: -1 })
       .lean<CustomerOrderRow[]>();
 
@@ -45,7 +62,10 @@ customerOrderRouter.get(
           totalItems: orderItem.totalItems,
           totalAmount: orderItem.totalAmount,
           paymentStatus: orderItem.paymentStatus,
+          paymentMethod: orderItem.paymentMethod,
           orderStatus: orderItem.orderStatus,
+          trackingId: orderItem.trackingId,
+          items: orderItem.items,
           paidAt: orderItem.paidAt,
           deliveredAt: orderItem.deliveredAt,
           returnedAt: orderItem.returnedAt,

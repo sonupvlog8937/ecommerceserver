@@ -210,7 +210,7 @@ customerCartWishlistRouter.post(
       isSameCartItem(item, String(foundProduct._id), color, size),
     );
 
-    if (itemIndex > 0) {
+    if (itemIndex >= 0) {
       const nextQuantity = cart.items[itemIndex].quantity + quantity;
 
       if (nextQuantity > foundProduct.stock) {

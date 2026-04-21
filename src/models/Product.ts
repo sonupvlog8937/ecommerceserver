@@ -21,7 +21,11 @@ export type Product = {
   price: number;
   salePercentage: number;
   status: ProductStatus;
+  isFeatured: boolean;
+  isPopular: boolean;
   createdBy: Types.ObjectId;
+  averageRating?: number;
+  reviewCount?: number;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -103,10 +107,28 @@ const ProductSchema = new mongoose.Schema(
       enum: ["active", "inactive"],
       default: "active",
     },
+    isFeatured: {
+      type: Boolean,
+      default: false,
+    },
+    isPopular: {
+      type: Boolean,
+      default: false,
+    },
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: "User",
       required: true,
+    },
+    averageRating: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 5,
+    },
+    reviewCount: {
+      type: Number,
+      default: 0,
     },
   },
   { timestamps: true },

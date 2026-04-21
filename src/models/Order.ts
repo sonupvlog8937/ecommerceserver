@@ -2,6 +2,7 @@ import mongoose, { HydratedDocument, model, Schema, Types } from "mongoose";
 
 export type PaymentStatus = "pending" | "paid" | "failed";
 export type OrderStatus = "placed" | "shipped" | "delivered" | "returned";
+export type PaymentMethod = "razorpay" | "cod" | "points";
 
 export type OrderItem = {
   product: Types.ObjectId;
@@ -20,8 +21,10 @@ export type Order = {
   discountAmount: number;
   totalAmount: number;
   paymentStatus: PaymentStatus;
+  paymentMethod: PaymentMethod;
   orderStatus: OrderStatus;
-  razorpayOrderId: string;
+  trackingId: string;
+  razorpayOrderId?: string;
   paymentId?: string;
   paidAt?: Date | null;
   deliveredAt?: Date | null;
@@ -111,9 +114,21 @@ const OrderSchema = new Schema<Order>(
       enum: ["placed", "shipped", "delivered", "returned"],
       default: "placed",
     },
+    paymentMethod: {
+      type: String,
+      enum: ["razorpay", "cod", "points"],
+      default: "razorpay",
+      required: true,
+    },
+    trackingId: {
+      type: String,
+      default: "",
+      trim: true,
+      index: true,
+    },
     razorpayOrderId: {
       type: String,
-      required: true,
+      default: "",
       trim: true,
     },
     paymentId: {

@@ -55,6 +55,11 @@ type PromoRow = {
 
 export const customerCheckoutWithPointsRouter = Router();
 
+function generateTrackingId() {
+  const randomPart = Math.random().toString(36).slice(2, 8).toUpperCase();
+  return `NJ-${Date.now().toString(36).toUpperCase()}-${randomPart}`;
+}
+
 customerCheckoutWithPointsRouter.use(requireAuth);
 
 customerCheckoutWithPointsRouter.get(
@@ -244,6 +249,7 @@ customerCheckoutWithPointsRouter.post(
 
       const order = await Order.create({
         user: dbUser._id,
+        trackingId: generateTrackingId(),
         customerName: foundUser.name || selectedAddress.fullName,
         customerEmail: foundUser.email || "",
         items,
@@ -254,6 +260,7 @@ customerCheckoutWithPointsRouter.post(
         discountAmount,
         totalAmount,
         paymentStatus: "paid",
+        paymentMethod: "points",
         orderStatus: "placed",
         razorpayOrderId: pointsPaymentId,
         paymentId: pointsPaymentId,

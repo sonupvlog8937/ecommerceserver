@@ -4,6 +4,7 @@ import { Category } from "../../models/Category";
 import { ok } from "../../utils/envelope";
 import { Product } from "../../models/Product";
 import { requireFound } from "../../utils/helpers";
+import { Brand } from "../../models/Brand";
 
 export const customerProductRouter = Router();
 
@@ -15,6 +16,9 @@ type ProductAppliedFilterListQuery = {
   color?: string;
   size?: string;
   sort?: ProductSort;
+    page?: string;
+  limit?: string;
+  search?: string;
 };
 
 customerProductRouter.get(
@@ -26,6 +30,17 @@ customerProductRouter.get(
     res.json(ok(categories));
   }),
 );
+
+customerProductRouter.get(
+  "/brands",
+
+  asyncHandler(async (_req: Request, res: Response) => {
+    const brands = await Brand.find({}).sort({ name: 1 });
+
+    res.json(ok(brands));
+  }),
+);
+
 
 customerProductRouter.get(
   "/products",
@@ -40,6 +55,9 @@ customerProductRouter.get(
       const color = (req.query.color || "").trim();
       const size = (req.query.size || "").trim();
       const sort: ProductSort = req.query.sort || "recent";
+      const search = (req.query.search || "").trim();
+      const page = Math.max(Number(req.query.page || 1), 1);
+      const limit = Math.max(Number(req.query.limit || 12), 1);
 
       const query: Record<string, unknown> = {
         status: "active",
@@ -57,6 +75,9 @@ customerProductRouter.get(
       if (size) {
         query.sizes = size;
       }
+      if (search) {
+        query.title = { $regex: search, $options: "i" };
+      }
 
       let sortOption: Record<string, 1 | -1> = { createdAt: -1 };
 
@@ -68,11 +89,26 @@ customerProductRouter.get(
         sortOption = { price: -1 };
       }
 
-      const products = await Product.find(query)
-        .populate("category", "name")
-        .sort(sortOption);
+      const [products, total] = await Promise.all([
+        Product.find(query)
+          .populate("category", "name")
+          .sort(sortOption)
+          .skip((page - 1) * limit)
+          .limit(limit),
+        Product.countDocuments(query),
+      ]);
 
-      res.json(ok(products));
+      res.json(
+        ok({
+          items: products,
+          pagination: {
+            page,
+            limit,
+            total,
+            hasNext: page * limit < total,
+          },
+        }),
+      );
     },
   ),
 );

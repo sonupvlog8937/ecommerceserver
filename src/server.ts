@@ -21,6 +21,8 @@ import { adminOrderRouter } from "./routes/admin/orders.routes";
 import { adminSettingsRouter } from "./routes/admin/settings.routes";
 import { adminDashboardRouter } from "./routes/admin/dashboard.routes";
 import { customerHomeRouter } from "./routes/customer/home.routes";
+import customerReviewRouter from "./routes/customer/reviews";
+import adminSpecificationRouter from "./routes/admin/specifications";
 
 async function mainEntryFunction() {
   await connectDB();
@@ -59,6 +61,7 @@ async function mainEntryFunction() {
   app.use("/customer", customerCheckoutRouter);
   app.use("/customer", customerCheckoutWithPointsRouter);
   app.use("/customer", customerOrderRouter);
+  app.use("/customer/reviews", customerReviewRouter);
 
   // admin routes
   app.use("/admin", adminProductRouter);
@@ -66,6 +69,7 @@ async function mainEntryFunction() {
   app.use("/admin", adminOrderRouter);
   app.use("/admin", adminSettingsRouter);
   app.use("/admin", adminDashboardRouter);
+  app.use("/admin/specifications", adminSpecificationRouter);
 
   app.use(notFound);
   app.use(errorHandler);

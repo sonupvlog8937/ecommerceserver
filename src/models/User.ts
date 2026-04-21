@@ -24,6 +24,11 @@ const addressSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    phoneNumber: {
+      type: String,
+      required: true,
+      trim: true,
+    },
     isDefault: {
       type: Boolean,
       default: false,

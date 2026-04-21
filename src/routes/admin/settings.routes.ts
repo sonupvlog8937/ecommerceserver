@@ -82,3 +82,24 @@ adminSettingsRouter.post(
     );
   }),
 );
+
+adminSettingsRouter.delete(
+  "/settings/banners/:id",
+  asyncHandler(async (req: Request, res: Response) => {
+    const bannerId = req.params.id as string;
+
+    const deletedBanner = await Banner.findByIdAndDelete(bannerId);
+
+    if (!deletedBanner) {
+      throw new AppError(404, "Banner not found");
+    }
+
+    const items = await Banner.find().sort({ createdAt: -1 });
+
+    res.json(
+      ok({
+        items: items.map(mapBanner),
+      }),
+    );
+  }),
+);

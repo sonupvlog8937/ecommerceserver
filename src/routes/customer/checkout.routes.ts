@@ -56,6 +56,12 @@ type PromoRow = {
 
 export const customerCheckoutRouter = Router();
 
+function generateTrackingId() {
+  const randomPart = Math.random().toString(36).slice(2, 8).toUpperCase();
+  return `NJ-${Date.now().toString(36).toUpperCase()}-${randomPart}`;
+}
+
+
 customerCheckoutRouter.use(requireAuth);
 
 customerCheckoutRouter.post(
@@ -66,6 +72,7 @@ customerCheckoutRouter.post(
     const promoCode = String(req.body.promoCode || "")
       .trim()
       .toUpperCase();
+    const paymentMethod = String(req.body.paymentMethod || "razorpay").trim();
 
     requireText(addressId, "Address is required");
 
@@ -165,6 +172,48 @@ customerCheckoutRouter.post(
 
     const totalAmount = Math.max(subTotal - discountAmount, 0);
 
+    // Handle COD orders separately
+    if (paymentMethod === "cod") {
+      const deliveryAddress = [
+        selectedAddress.address,
+        selectedAddress.state,
+        selectedAddress.postalCode,
+      ]
+        .filter(Boolean)
+        .join(", ");
+
+      const order = await Order.create({
+        user: dbUser._id,
+        trackingId: generateTrackingId(),
+        customerName: foundUser.name || selectedAddress.fullName,
+        customerEmail: foundUser.email || "",
+        items,
+        totalItems,
+        deliveryName: selectedAddress.fullName,
+        deliveryAddress,
+        promoCode: appliedPromoCode,
+        discountAmount,
+        totalAmount,
+        paymentStatus: "pending",
+        paymentMethod: "cod",
+        orderStatus: "placed",
+      });
+
+      res.json(
+        ok({
+          paymentMethod: "cod",
+          order: {
+            _id: String(order._id),
+            totalItems,
+            discountAmount,
+            totalAmount,
+          },
+        }),
+      );
+      return;
+    }
+
+    // Handle Razorpay orders
     const razorpayOrder = await razorpay.orders.create({
       amount: toSubUnits(totalAmount),
       currency: "INR",
@@ -181,6 +230,7 @@ customerCheckoutRouter.post(
 
     const order = await Order.create({
       user: dbUser._id,
+      trackingId: generateTrackingId(),
       customerName: foundUser.name || selectedAddress.fullName,
       customerEmail: foundUser.email || "",
       items,
@@ -191,6 +241,7 @@ customerCheckoutRouter.post(
       discountAmount,
       totalAmount,
       paymentStatus: "pending",
+      paymentMethod: "razorpay",
       orderStatus: "placed",
       razorpayOrderId: razorpayOrder.id,
     });
@@ -219,14 +270,12 @@ customerCheckoutRouter.post(
   asyncHandler(async (req: Request, res: Response) => {
     const dbUser = await getDbUserFromReq(req);
     const orderId = String(req.body.orderId || "").trim();
+    const paymentMethod = String(req.body.paymentMethod || "razorpay").trim();
     const razorpayPaymentId = String(req.body.razorpay_payment_id || "").trim();
     const razorpayOrderId = String(req.body.razorpay_order_id || "").trim();
     const razorpaySignature = String(req.body.razorpay_signature || "").trim();
 
     requireText(orderId, "Order id is needed");
-    requireText(razorpayPaymentId, "razorpayPaymentId is needed");
-    requireText(razorpayOrderId, "razorpayOrderId is needed");
-    requireText(razorpaySignature, "razorpaySignature is needed");
 
     const order = await Order.findOne({ _id: orderId, user: dbUser._id });
     const foundOrder = requireFound(order, "Order not found", 404);
@@ -235,6 +284,52 @@ customerCheckoutRouter.post(
       res.json(ok({ _id: String(foundOrder._id) }));
       return;
     }
+
+    // Handle COD orders
+    if (paymentMethod === "cod") {
+      // Deduct stock for COD orders
+      for (const item of foundOrder.items) {
+        const updated = await Product.updateOne(
+          {
+            _id: item.product,
+            stock: { $gte: item.quantity },
+          },
+          {
+            $inc: { stock: -item.quantity },
+          },
+        );
+
+        if (!updated.matchedCount) {
+          throw new AppError(400, "One or more cart items are out of stock");
+        }
+      }
+
+      if (foundOrder.promoCode) {
+        await Promo.updateOne(
+          {
+            code: foundOrder.promoCode,
+            count: { $gt: 0 },
+          },
+          {
+            $inc: { count: -1 },
+          },
+        );
+      }
+
+      await Cart.updateOne({ user: dbUser._id }, { $set: { items: [] } });
+
+      foundOrder.paymentStatus = "paid";
+      foundOrder.paidAt = new Date();
+      await foundOrder.save();
+
+      res.json(ok({ _id: String(foundOrder._id) }));
+      return;
+    }
+
+    // Handle Razorpay orders
+    requireText(razorpayPaymentId, "razorpayPaymentId is needed");
+    requireText(razorpayOrderId, "razorpayOrderId is needed");
+    requireText(razorpaySignature, "razorpaySignature is needed");
 
     if (foundOrder.razorpayOrderId !== razorpayOrderId) {
       throw new AppError(400, "Order id mismatch");

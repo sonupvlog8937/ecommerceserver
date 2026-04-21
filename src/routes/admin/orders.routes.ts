@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { Types } from "mongoose";
-import { Order, OrderStatus, PaymentStatus } from "../../models/Order";
+import { Order, OrderStatus, PaymentMethod, PaymentStatus } from "../../models/Order";
 import { requireAdmin } from "../../middleware/auth";
 import { asyncHandler } from "../../utils/asyncHandler";
 import { ok } from "../../utils/envelope";
@@ -21,10 +21,24 @@ type AdminOrderRow = {
   _id: Types.ObjectId;
   customerName: string;
   customerEmail: string;
+  deliveryName: string;
+  deliveryAddress: string;
   totalItems: number;
   totalAmount: number;
   paymentStatus: PaymentStatus;
+  paymentMethod: PaymentMethod;
   orderStatus: OrderStatus;
+  trackingId: string;
+  items: Array<{
+    quantity: number;
+    product:
+      | {
+          _id: Types.ObjectId;
+          title: string;
+          images?: Array<{ url: string; isCover: boolean }>;
+        }
+      | null;
+  }>;
   paidAt?: Date | null;
   deliveredAt?: Date | null;
   returnedAt?: Date | null;
@@ -40,8 +54,13 @@ adminOrderRouter.get(
   asyncHandler(async (req: Request, res: Response) => {
     const orders = await Order.find()
       .select(
-        "customerName customerEmail totalItems totalAmount paymentStatus orderStatus  paidAt deliveredAt returnedAt createdAt",
+         "customerName customerEmail deliveryName deliveryAddress items totalItems totalAmount paymentStatus paymentMethod orderStatus trackingId paidAt deliveredAt returnedAt createdAt",
       )
+      .populate({
+        path: "items.product",
+        select: "title images",
+        model: Product,
+      })
       .sort({ createdAt: -1 })
       .lean<AdminOrderRow[]>();
 
@@ -52,10 +71,28 @@ adminOrderRouter.get(
           code: String(orderItem._id).slice(-8).toUpperCase(),
           customerName: orderItem.customerName,
           customerEmail: orderItem.customerEmail,
+          deliveryName: orderItem.deliveryName,
+          deliveryAddress: orderItem.deliveryAddress,
           totalItems: orderItem.totalItems,
           totalAmount: orderItem.totalAmount,
           paymentStatus: orderItem.paymentStatus,
+          paymentMethod: orderItem.paymentMethod,
           orderStatus: orderItem.orderStatus,
+          trackingId: orderItem.trackingId,
+          items: orderItem.items.map((lineItem) => ({
+            quantity: lineItem.quantity,
+            product: lineItem.product
+              ? {
+                  _id: String(lineItem.product._id),
+                  title: lineItem.product.title,
+                  image:
+                    lineItem.product.images?.find((image) => image.isCover)
+                      ?.url ||
+                    lineItem.product.images?.[0]?.url ||
+                    "",
+                }
+              : null,
+          })),
           paidAt: orderItem.paidAt,
           deliveredAt: orderItem.deliveredAt,
           returnedAt: orderItem.returnedAt,
@@ -101,6 +138,10 @@ adminOrderRouter.patch(
 
     if (orderStatus === "delivered" && !foundOrder.deliveredAt) {
       foundOrder.deliveredAt = new Date();
+    }
+
+    if (orderStatus === "returned" && !foundOrder.returnedAt) {
+      foundOrder.returnedAt = new Date();
     }
 
     foundOrder.orderStatus = orderStatus;

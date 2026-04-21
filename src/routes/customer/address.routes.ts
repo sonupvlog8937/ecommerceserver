@@ -12,6 +12,7 @@ type AddressItem = {
   address: string;
   state: string;
   postalCode: string;
+  phoneNumber: string;
   isDefault: boolean;
 };
 
@@ -22,6 +23,7 @@ function mapAddress(item: AddressItem) {
     address: item.address,
     state: item.state,
     postalCode: item.postalCode,
+    phoneNumber: item.phoneNumber || "",
     isDefault: item.isDefault,
   };
 }
@@ -58,11 +60,13 @@ customerAddressRouter.post(
     const address = String(req.body.address || "").trim();
     const state = String(req.body.state || "").trim();
     const postalCode = String(req.body.postalCode || "").trim();
+    const phoneNumber = String(req.body.phoneNumber || "").trim();
 
     requireText(fullName, "Full name is required");
     requireText(address, "Address is required");
     requireText(state, "State is required");
     requireText(postalCode, "postal code is required");
+    requireText(phoneNumber, "phone number is required");
 
     const user = await User.findById(dbUser._id);
 
@@ -84,6 +88,7 @@ customerAddressRouter.post(
       address,
       state,
       postalCode,
+      phoneNumber,
       isDefault: shouldMarkAsDefault,
     });
 
@@ -109,11 +114,13 @@ customerAddressRouter.patch(
     const address = String(req.body.address || "").trim();
     const state = String(req.body.state || "").trim();
     const postalCode = String(req.body.postalCode || "").trim();
+    const phoneNumber = String(req.body.phoneNumber || "").trim();
 
     requireText(fullName, "Full name is required");
     requireText(address, "Address is required");
     requireText(state, "State is required");
     requireText(postalCode, "postal code is required");
+    requireText(phoneNumber, "phone number is required");
 
     const user = await User.findById(dbUser._id);
 
@@ -142,6 +149,7 @@ customerAddressRouter.patch(
     getAddressTheUserWantToEdit.address = address;
     getAddressTheUserWantToEdit.state = state;
     getAddressTheUserWantToEdit.postalCode = postalCode;
+    getAddressTheUserWantToEdit.phoneNumber = phoneNumber;
 
     if (shouldMarkAsDefault) {
       getAddressTheUserWantToEdit.isDefault = true;
