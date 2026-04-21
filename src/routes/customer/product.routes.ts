@@ -15,8 +15,14 @@ type ProductAppliedFilterListQuery = {
   brand?: string;
   color?: string;
   size?: string;
+  minPrice?: string;
+  maxPrice?: string;
+  minRating?: string;
+  minDiscount?: string;
+  availability?: "all" | "in-stock" | "out-of-stock";
+  productTag?: "all" | "featured" | "popular";
   sort?: ProductSort;
-    page?: string;
+  page?: string;
   limit?: string;
   search?: string;
 };
@@ -54,6 +60,12 @@ customerProductRouter.get(
       const brand = (req.query.brand || "").trim();
       const color = (req.query.color || "").trim();
       const size = (req.query.size || "").trim();
+      const minPrice = Number(req.query.minPrice || 0);
+      const maxPrice = Number(req.query.maxPrice || 0);
+      const minRating = Number(req.query.minRating || 0);
+      const minDiscount = Number(req.query.minDiscount || 0);
+      const availability = String(req.query.availability || "all").trim();
+      const productTag = String(req.query.productTag || "all").trim();
       const sort: ProductSort = req.query.sort || "recent";
       const search = (req.query.search || "").trim();
       const page = Math.max(Number(req.query.page || 1), 1);
@@ -74,6 +86,30 @@ customerProductRouter.get(
       }
       if (size) {
         query.sizes = size;
+      }
+      if (Number.isFinite(minPrice) && minPrice > 0) {
+        query.price = { ...(query.price as object), $gte: minPrice };
+      }
+      if (Number.isFinite(maxPrice) && maxPrice > 0) {
+        query.price = { ...(query.price as object), $lte: maxPrice };
+      }
+      if (Number.isFinite(minRating) && minRating > 0) {
+        query.averageRating = { $gte: minRating };
+      }
+      if (Number.isFinite(minDiscount) && minDiscount > 0) {
+        query.salePercentage = { $gte: minDiscount };
+      }
+      if (availability === "in-stock") {
+        query.stock = { $gt: 0 };
+      }
+      if (availability === "out-of-stock") {
+        query.stock = 0;
+      }
+      if (productTag === "featured") {
+        query.isFeatured = true;
+      }
+      if (productTag === "popular") {
+        query.isPopular = true;
       }
       if (search) {
         query.title = { $regex: search, $options: "i" };

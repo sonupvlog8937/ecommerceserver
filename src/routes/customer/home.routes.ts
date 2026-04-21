@@ -25,6 +25,8 @@ type ProductRow = {
   brand: string;
   price: number;
   salePercentage: number;
+  averageRating?: number;
+  reviewCount?: number;
   images: Array<{
     url: string;
     isCover?: boolean;
@@ -59,6 +61,8 @@ function mapProduct(item: ProductRow) {
     price: item.price,
     finalPrice,
     salePercentage: item.salePercentage,
+    averageRating: Number(item.averageRating || 0),
+    reviewCount: Number(item.reviewCount || 0),
     createdAt: item.createdAt.toISOString(),
   };
 }
@@ -75,17 +79,23 @@ customerHomeRouter.get(
         Category.find().sort({ name: 1 }).lean<CategoryRow[]>(),
         Brand.find().sort({ name: 1 }),
         Product.find({ status: "active" })
-          .select("title brand price salePercentage images createdAt")
+          .select(
+            "title brand price salePercentage averageRating reviewCount images createdAt",
+          )
           .sort({ createdAt: -1 })
           .limit(8)
           .lean<ProductRow[]>(),
         Product.find({ status: "active", isFeatured: true })
-          .select("title brand price salePercentage images createdAt")
+          .select(
+            "title brand price salePercentage averageRating reviewCount images createdAt",
+          )
           .sort({ createdAt: -1 })
           .limit(8)
           .lean<ProductRow[]>(),
         Product.find({ status: "active", isPopular: true })
-          .select("title brand price salePercentage images createdAt")
+          .select(
+            "title brand price salePercentage averageRating reviewCount images createdAt",
+          )
           .sort({ createdAt: -1 })
           .limit(8)
           .lean<ProductRow[]>(),

@@ -10,12 +10,98 @@ import { AppError } from "../../utils/AppError";
 import { uploadManyBuffersToCloudinary } from "../../utils/cloudinary";
 import { Brand } from "../../models/Brand";
 import { SpecificationModel } from "../../models/Specification";
+import { ReviewModel } from "../../models/Review";
 
 type UploadedImage = {
   url: string;
   publicId: string;
   isCover: boolean;
 };
+
+type ReviewInput = {
+  rating?: number;
+  title?: string;
+  comment?: string;
+  userName?: string;
+  userEmail?: string;
+};
+
+function normalizeArrayField(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    return [value.trim()];
+  }
+
+  return [];
+}
+
+function parseSpecifications(rawSpecifications: string) {
+  const allowedSpecificationKeys = new Set([
+    "material",
+    "weight",
+    "dimension",
+    "warranty",
+    "color_options",
+    "brand_origin",
+    "care_instructions",
+    "custom",
+  ]);
+  try {
+    const parsed = JSON.parse(rawSpecifications) as Array<{
+      key?: string;
+      value?: string;
+    }>;
+
+    return parsed
+      .map((item) => ({
+       key: String(item.key || "").trim().toLowerCase().replace(/\s+/g, "_"),
+        displayKey: String(item.key || "").trim(),
+        value: String(item.value || "").trim(),
+      }))
+      .filter((item) => item.displayKey && item.value)
+      .map((item) => ({
+        key: allowedSpecificationKeys.has(item.key) ? item.key : "custom",
+        displayKey: item.displayKey,
+        value: item.value,
+      }));
+  } catch {
+    return [];
+  }
+}
+
+function parseReviews(rawReviews: string) {
+  try {
+    const parsed = JSON.parse(rawReviews) as ReviewInput[];
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed
+      .map((review) => ({
+        rating: Number(review.rating),
+        title: String(review.title || "").trim(),
+        comment: String(review.comment || "").trim(),
+        userName: String(review.userName || "").trim(),
+        userEmail: String(review.userEmail || "").trim(),
+      }))
+      .filter(
+        (review) =>
+          Number.isFinite(review.rating) &&
+          review.rating >= 1 &&
+          review.rating <= 5 &&
+          review.title &&
+          review.comment &&
+          review.userName &&
+          review.userEmail,
+      );
+  } catch {
+    return [];
+  }
+}
+
 
 export const adminProductRouter = Router();
 
@@ -186,14 +272,22 @@ adminProductRouter.get(
   asyncHandler(async (req: Request, res: Response) => {
     const productId = req.params.id as string;
 
-    const product = await Product.findById(productId).populate(
-      "category",
-      "name",
-    );
+    const product = await Product.findById(productId).populate("category", "name");
 
     requireText(product, "Product not found", 404);
 
-    res.json(ok(product));
+   const [specifications, reviews] = await Promise.all([
+      SpecificationModel.find({ productId: productId }).sort({ createdAt: -1 }),
+      ReviewModel.find({ productId: productId }).sort({ createdAt: -1 }),
+    ]);
+
+    res.json(
+      ok({
+        ...product.toObject(),
+        specifications,
+        reviews,
+      }),
+    );
   }),
 );
 
@@ -209,11 +303,12 @@ adminProductRouter.post(
     const salePercentage = Number(req.body.salePercentage || 0);
     const stock = Number(req.body.stock);
     const status = String(req.body.status || "active").trim();
-    const colors = req.body.colors || [];
-    const sizes = req.body.sizes || [];
+    const colors = normalizeArrayField(req.body.colors);
+    const sizes = normalizeArrayField(req.body.sizes);
     const isFeatured = String(req.body.isFeatured || "false") === "true";
     const isPopular = String(req.body.isPopular || "false") === "true";
     const rawSpecifications = String(req.body.specifications || "[]");
+    const rawReviews = String(req.body.reviews || "[]");
 
     requireText(title, "Title is required");
     requireText(description, "Description is required");
@@ -263,23 +358,8 @@ adminProductRouter.post(
       createdBy: user._id,
     });
 
-    const specifications = (() => {
-      try {
-        const parsed = JSON.parse(rawSpecifications) as Array<{
-          key?: string;
-          value?: string;
-        }>;
-
-        return parsed
-          .map((item) => ({
-            key: String(item.key || "").trim(),
-            value: String(item.value || "").trim(),
-          }))
-          .filter((item) => item.key && item.value);
-      } catch {
-        return [];
-      }
-    })();
+    const specifications = parseSpecifications(rawSpecifications);
+    const reviews = parseReviews(rawReviews);
 
     if (specifications.length) {
       await SpecificationModel.insertMany(
@@ -287,8 +367,32 @@ adminProductRouter.post(
           productId: product._id,
           key: item.key,
           value: item.value,
+          displayKey: item.displayKey,
         })),
       );
+    }
+
+    if (reviews.length) {
+      await ReviewModel.insertMany(
+        reviews.map((review) => ({
+          productId: product._id,
+          userId: user._id,
+          rating: review.rating,
+          title: review.title,
+          comment: review.comment,
+          userName: review.userName,
+          userEmail: review.userEmail,
+          status: "approved",
+        })),
+      );
+    }
+
+    const approvedReviews = reviews.filter((review) => review.rating);
+    if (approvedReviews.length) {
+      const total = approvedReviews.reduce((sum, review) => sum + review.rating, 0);
+      product.averageRating = Math.round((total / approvedReviews.length) * 10) / 10;
+      product.reviewCount = approvedReviews.length;
+      await product.save();
     }
 
 
@@ -316,12 +420,13 @@ adminProductRouter.put(
     const status = String(req.body.status || "active").trim() as
       | "active"
       | "inactive";
-    const colors = req.body.colors || [];
-    const sizes = req.body.sizes || [];
+    const colors = normalizeArrayField(req.body.colors);
+    const sizes = normalizeArrayField(req.body.sizes);
     const coverImagePublicId = String(req.body.coverImagePublicId || "").trim();
     const isFeatured = String(req.body.isFeatured || "false") === "true";
     const isPopular = String(req.body.isPopular || "false") === "true";
     const rawSpecifications = String(req.body.specifications || "[]");
+    const rawReviews = String(req.body.reviews || "[]");
 
     requireText(title, "Title is required");
     requireText(description, "Description is required");
@@ -405,23 +510,8 @@ adminProductRouter.put(
     product.status = status;
     product.set("images", finalImages);
 
-    const specifications = (() => {
-      try {
-        const parsed = JSON.parse(rawSpecifications) as Array<{
-          key?: string;
-          value?: string;
-        }>;
-
-        return parsed
-          .map((item) => ({
-            key: String(item.key || "").trim(),
-            value: String(item.value || "").trim(),
-          }))
-          .filter((item) => item.key && item.value);
-      } catch {
-        return [];
-      }
-    })();
+    const specifications = parseSpecifications(rawSpecifications);
+    const reviews = parseReviews(rawReviews);
 
     if (Array.isArray(specifications)) {
       await SpecificationModel.deleteMany({ productId: product._id });
@@ -431,9 +521,35 @@ adminProductRouter.put(
             productId: product._id,
             key: item.key,
             value: item.value,
+            displayKey: item.displayKey,
           })),
         );
       }
+    }
+
+    await ReviewModel.deleteMany({ productId: product._id });
+    if (reviews.length) {
+      await ReviewModel.insertMany(
+        reviews.map((review) => ({
+          productId: product._id,
+          userId: product.createdBy,
+          rating: review.rating,
+          title: review.title,
+          comment: review.comment,
+          userName: review.userName,
+          userEmail: review.userEmail,
+          status: "approved",
+        })),
+      );
+    }
+
+    if (reviews.length) {
+      const total = reviews.reduce((sum, review) => sum + review.rating, 0);
+      product.averageRating = Math.round((total / reviews.length) * 10) / 10;
+      product.reviewCount = reviews.length;
+    } else {
+      product.averageRating = 0;
+      product.reviewCount = 0;
     }
 
 
@@ -445,5 +561,22 @@ adminProductRouter.put(
     );
 
     res.json(ok(updatedProduct));
+  }),
+);
+
+adminProductRouter.delete(
+  "/products/:id",
+  asyncHandler(async (req: Request, res: Response) => {
+    const productId = req.params.id as string;
+    const deletedProduct = await Product.findByIdAndDelete(productId);
+
+    requireFound(deletedProduct, "Product not found", 404);
+
+    await Promise.all([
+      SpecificationModel.deleteMany({ productId }),
+      ReviewModel.deleteMany({ productId }),
+    ]);
+
+    res.json(ok({ success: true }));
   }),
 );
