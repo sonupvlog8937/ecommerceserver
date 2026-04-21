@@ -1,11 +1,11 @@
-import { getDbUserFromReq, requireAdmin } from "../../middleware/auth";
+import { getDbUserFromReq, requireAdmin } from "../../middleware/auth.js";
 import multer from "multer";
-import { Banner, BannerDocument } from "../../models/Banner";
+import { Banner, BannerDocument } from "../../models/Banner.js";
 import { Router, type Request, type Response } from "express";
-import { asyncHandler } from "../../utils/asyncHandler";
-import { ok } from "../../utils/envelope";
-import { AppError } from "../../utils/AppError";
-import { uploadManyBuffersToCloudinary } from "../../utils/cloudinary";
+import { asyncHandler } from "../../utils/asyncHandler.js";
+import { ok } from "../../utils/envelope.js";
+import { AppError } from "../../utils/AppError.js";
+import { uploadManyBuffersToCloudinary } from "../../utils/cloudinary.js";
 
 type AdminBannerItem = {
   _id: string;

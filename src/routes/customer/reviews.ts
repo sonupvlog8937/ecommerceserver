@@ -1,11 +1,11 @@
 import { Router, Request, Response } from "express";
 import { Types } from "mongoose";
-import { asyncHandler } from "../../utils/asyncHandler";
-import { AppError } from "../../utils/AppError";
-import { ReviewModel } from "../../models/Review";
-import { Product } from "../../models/Product";
-import { getDbUserFromReq, requireAdmin, requireAuth } from "../../middleware/auth";
-import { ok } from "../../utils/envelope";
+import { asyncHandler } from "../../utils/asyncHandler.js";
+import { AppError } from "../../utils/AppError.js";
+import { ReviewModel } from "../../models/Review.js";
+import { Product } from "../../models/Product.js";
+import { getDbUserFromReq, requireAdmin, requireAuth } from "../../middleware/auth.js";
+import { ok } from "../../utils/envelope.js";
 
 const router = Router();
 

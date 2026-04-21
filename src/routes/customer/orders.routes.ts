@@ -1,13 +1,13 @@
 import { Router, type Response, type Request } from "express";
 import { Types } from "mongoose";
-import { Order, OrderStatus, PaymentMethod, PaymentStatus } from "../../models/Order";
-import { getDbUserFromReq, requireAuth } from "../../middleware/auth";
-import { asyncHandler } from "../../utils/asyncHandler";
-import { ok } from "../../utils/envelope";
-import { requireFound, requireText } from "../../utils/helpers";
-import { AppError } from "../../utils/AppError";
-import { Product } from "../../models/Product";
-import { User } from "../../models/User";
+import { Order, OrderStatus, PaymentMethod, PaymentStatus } from "../../models/Order.js";
+import { getDbUserFromReq, requireAuth } from "../../middleware/auth.js";
+import { asyncHandler } from "../../utils/asyncHandler.js";
+import { ok } from "../../utils/envelope.js";
+import { requireFound, requireText } from "../../utils/helpers.js";
+import { AppError } from "../../utils/AppError.js";
+import { Product } from "../../models/Product.js";
+import { User } from "../../models/User.js";
 
 type CustomerOrderRow = {
   _id: Types.ObjectId;

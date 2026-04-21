@@ -1,10 +1,10 @@
 import { Router } from "express";
-import { requireAuth } from "../../middleware/auth";
-import { asyncHandler } from "../../utils/asyncHandler";
+import { requireAuth } from "../../middleware/auth.js";
+import { asyncHandler } from "../../utils/asyncHandler.js";
 import { clerkClient, getAuth } from "@clerk/express";
-import { AppError } from "../../utils/AppError";
-import { User } from "../../models/User";
-import { ok } from "../../utils/envelope";
+import { AppError } from "../../utils/AppError.js";
+import { User } from "../../models/User.js";
+import { ok } from "../../utils/envelope.js";
 
 export const authRouter = Router();
 

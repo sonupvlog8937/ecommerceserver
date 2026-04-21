@@ -1,10 +1,10 @@
 import { Router, Request, Response } from "express";
-import { asyncHandler } from "../../utils/asyncHandler";
-import { AppError } from "../../utils/AppError";
-import { SpecificationModel } from "../../models/Specification";
-import { Product } from "../../models/Product";
-import { requireAdmin } from "../../middleware/auth";
-import { ok } from "../../utils/envelope";
+import { asyncHandler } from "../../utils/asyncHandler.js";
+import { AppError } from "../../utils/AppError.js";
+import { SpecificationModel } from "../../models/Specification.js";
+import { Product } from "../../models/Product.js";
+import { requireAdmin } from "../../middleware/auth.js";
+import { ok } from "../../utils/envelope.js";
 
 const router = Router();
 

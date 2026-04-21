@@ -1,10 +1,10 @@
 import { Router, type Request, type Response } from "express";
-import { requireAdmin } from "../../middleware/auth";
-import { asyncHandler } from "../../utils/asyncHandler";
-import { Product } from "../../models/Product";
-import { Category } from "../../models/Category";
-import { Order } from "../../models/Order";
-import { ok } from "../../utils/envelope";
+import { requireAdmin } from "../../middleware/auth.js";
+import { asyncHandler } from "../../utils/asyncHandler.js";
+import { Product } from "../../models/Product.js";
+import { Category } from "../../models/Category.js";
+import { Order } from "../../models/Order.js";
+import { ok } from "../../utils/envelope.js";
 
 type TotalSaleRow = {
   _id: null;

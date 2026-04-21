@@ -1,12 +1,12 @@
 import { Router, type Request, type Response } from "express";
-import { getDbUserFromReq, requireAuth } from "../../middleware/auth";
-import { Product, ProductSize } from "../../models/Product";
-import { asyncHandler } from "../../utils/asyncHandler";
-import { ok } from "../../utils/envelope";
-import { Cart, CartItem } from "../../models/Cart";
-import { requireFound, requireText } from "../../utils/helpers";
-import { AppError } from "../../utils/AppError";
-import { Wishlist } from "../../models/Wishlist";
+import { getDbUserFromReq, requireAuth } from "../../middleware/auth.js";
+import { Product, ProductSize } from "../../models/Product.js";
+import { asyncHandler } from "../../utils/asyncHandler.js";
+import { ok } from "../../utils/envelope.js";
+import { Cart, CartItem } from "../../models/Cart.js";
+import { requireFound, requireText } from "../../utils/helpers.js";
+import { AppError } from "../../utils/AppError.js";
+import { Wishlist } from "../../models/Wishlist.js";
 import { Types } from "mongoose";
 
 export const customerCartWishlistRouter = Router();

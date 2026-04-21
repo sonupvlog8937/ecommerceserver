@@ -1,10 +1,10 @@
 import { Router, type Request, type Response } from "express";
-import { requireAuth } from "../../middleware/auth";
-import { asyncHandler } from "../../utils/asyncHandler";
-import { requireText } from "../../utils/helpers";
-import { AppError } from "../../utils/AppError";
-import { Promo } from "../../models/Promo";
-import { ok } from "../../utils/envelope";
+import { requireAuth } from "../../middleware/auth.js";
+import { asyncHandler } from "../../utils/asyncHandler.js";
+import { requireText } from "../../utils/helpers.js";
+import { AppError } from "../../utils/AppError.js";
+import { Promo } from "../../models/Promo.js";
+import { ok } from "../../utils/envelope.js";
 
 export const customerPromoRouter = Router();
 

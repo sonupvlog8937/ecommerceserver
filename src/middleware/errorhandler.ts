@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
-import { AppError } from "../utils/AppError";
-import { fail } from "../utils/envelope";
+import { AppError } from "../utils/AppError.js";
+import { fail } from "../utils/envelope.js";
 
 export function errorHandler(
   err: unknown,

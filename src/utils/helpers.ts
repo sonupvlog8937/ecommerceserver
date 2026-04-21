@@ -1,4 +1,4 @@
-import { AppError } from "./AppError";
+import { AppError } from "./AppError.js";
 
 export function requireText(value: unknown, message: string, statusCode = 400) {
   if (!String(value || "").trim()) {
